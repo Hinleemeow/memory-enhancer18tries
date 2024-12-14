@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Enhancement Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            color: #333;
+        }
+        #game-container {
+            margin-top: 20px;
+        }
+        #input-section {
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #difficulty-settings, #game-info {
+            margin: 20px;
+        }
+        #level-display {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        #timer {
+            font-size: 18px;
+            color: red;
+            margin-top: 10px;
+        }
+        #question-container {
+            margin-top: 20px;
+            display: none;
+        }
+        #shuffle-letters {
+            margin-top: 20px;
+        }
+        .letter {
+            display: inline-block;
+            padding: 10px;
+            margin: 5px;
+            background-color: #ddd;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .letter:hover {
+            background-color: #ccc;
+        }
+        .box {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            margin: 5px;
+            background-color: #fff;
+            border: 2px solid #ddd;
+            font-size: 18px;
+            text-align: center;
+            line-height: 40px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Memory Enhancement Game</h1>
+
+    <div id="difficulty-settings">
+        <h3>Difficulty Settings</h3>
+        <button onclick="setDifficulty(5, 20)">Easy (5 sec)</button>
+        <button onclick="setDifficulty(3, 40)">Medium (3 sec)</button>
+        <button onclick="setDifficulty(2, 90)">Hard (2 sec)</button>
+    </div>
+
+    <div id="game-info">
+        <p id="level-display">Level: 1</p>
+        <p id="score-display">Score: 0</p>
+        <p id="instructions">Select a mode and press "Start Game" to begin!</p>
+        <button onclick="setMode('numbers')">Numbers Mode</button>
+        <button onclick="setMode('words')">Words Mode</button>
+        <button onclick="startGame()">Start Game</button>
+        <button onclick="resetGame()">Reset Game</button>
+    </div>
+
+    <div id="game-container">
+        <p id="display-area" style="font-size: 24px; font-weight: bold;"></p>
+        <p id="timer"></p>
+    </div>
+
+    <div id="question-container">
+        <h3 id="question">Question:</h3>
+        <div id="boxes"></div>
+        <div id="shuffle-letters"></div>
+        <button onclick="validateAnswer()">Submit Answer</button>
+    </div>
+
+    <div id="input-section">
+        <input type="text" id="user-input" placeholder="Type here..." disabled>
+        <button onclick="submitAnswer()" disabled>Submit</button>
+    </div>
+
+    <script>
+        let currentLevel = 1;
+        let currentSequence = [];
+        let displayTime = 5; // Default difficulty is Easy
+        let intervalTime = 20; // Default interval
+        let mode = "numbers"; // Default mode
+        let score = 0; // Tracks correct answers
+        let timerInterval; // Stores the interval for the timer countdown
+        let correctAnswer = "";
+        let currentQuestion = "";
+        let selectedLetters = [];
+        let usedWords = [];
+        let timerFinished = false; // Tracks if the timer has finished
+        const wordsPool = [
+    "apple", "banana", "cherry", "dog", "elephant", "frog", "guitar", "house", "igloo", "jacket",
+    "kiwi", "lemon", "mango", "notebook", "orange", "pencil", "quilt", "rose", "sunflower", "tiger",
+    "umbrella", "violet", "walnut", "xylophone", "yacht", "zebra",
+    "airplane", "book", "cat", "duck", "eagle", "fish", "grape", "hat", "island", "jelly",
+    "kangaroo", "lamp", "mountain", "nest", "ocean", "pizza", "queen", "rainbow", "star", "table",
+    "umbrella", "van", "whale", "xray", "yogurt", "zucchini", "ant", "butterfly", "carrot", "drum",
+    "engine", "feather", "goose", "honey", "ice", "jungle", "kite", "lizard", "monkey", "necklace",
+    "octopus", "penguin", "quokka", "river", "squirrel", "tomato", "ukulele", "vase", "wolf", "xenon",
+    "yolk", "zipper", "anchor", "bridge", "castle", "dolphin", "earth", "fire", "garden", "horse",
+    "iguanodon", "jigsaw", "kettle", "ladder", "map", "newspaper", "onion", "peach", "queenbee", "robot",
+    "sandwich", "toothbrush", "umbrella", "vulture", "waterfall", "xenophobia", "yeti", "zeppelin"
+];
+
+const questionsPool = [
+    { question: "What is the capital of Canada?", answer: "OTTAWA" },
+    { question: "What is the organ responsible for hearing?", answer: "EAR" },
+    { question: "What is the process by which plants make their food?", answer: "PHOTOSYNTHESIS" },
+    { question: "What is the chemical symbol for water?", answer: "H2O" },
+    { question: "What is the capital of Russia?", answer: "MOSCOW" },
+    { question: "What is the organ responsible for producing insulin?", answer: "PANCREAS" },
+    { question: "What planet is known for its rings?", answer: "SATURN" },
+    { question: "What is the capital of France?", answer: "PARIS" },
+    { question: "What is the term for animals that eat only plants?", answer: "HERBIVORES" },
+    { question: "What planet is closest to the Sun?", answer: "MERCURY" },
+    { question: "What is the capital of the Philippines?", answer: "MANILA" },
+    { question: "What is the freezing point of water in degrees Celsius?", answer: "0" },
+    { question: "What is the process by which liquid water becomes vapor?", answer: "EVAPORATION" },
+    { question: "What is the capital of Indonesia?", answer: "JAKARTA" },
+    { question: "What is the name of the galaxy we live in?", answer: "MILKY WAY" },
+    { question: "What is the smallest bone in the human body?", answer: "STAPES" },
+    { question: "What gas do humans need to breathe to survive?", answer: "OXYGEN" },
+    { question: "What is the capital of Japan?", answer: "TOKYO" },
+    { question: "What is the chemical symbol for iron?", answer: "FE" },
+    { question: "What is the boiling point of water in degrees Celsius?", answer: "100" },
+    { question: "What is the capital of Spain?", answer: "MADRID" },
+    { question: "What is the largest planet in our solar system?", answer: "JUPITER" },
+    { question: "What is the main component of the Sun?", answer: "HYDROGEN" },
+    { question: "What part of the eye controls the amount of light entering it?", answer: "PUPIL" },
+    { question: "What is the gas that humans exhale?", answer: "CARBON DIOXIDE" },
+    { question: "What is the part of the plant responsible for absorbing water?", answer: "ROOTS" },
+    { question: "What is the capital of Brazil?", answer: "BRASILIA" },
+    { question: "What is the largest organ in the human body?", answer: "SKIN" },
+    { question: "What is the capital of Italy?", answer: "ROME" },
+    { question: "What is the basic unit of heredity?", answer: "GENE" },
+    { question: "What is the powerhouse of the cell?", answer: "MITOCHONDRIA" },
+    { question: "What is the capital of the United Kingdom?", answer: "LONDON" },
+    { question: "What planet is known as the Red Planet?", answer: "MARS" },
+    { question: "What do bees collect from flowers?", answer: "NECTAR" },
+    { question: "What is the main gas found in the Earth's atmosphere?", answer: "NITROGEN" },
+    { question: "What is the capital of South Africa?", answer: "PRETORIA" },
+    { question: "What is the study of plants called?", answer: "BOTANY" },
+    { question: "What is the chemical formula for table salt?", answer: "NACL" },
+    { question: "What is the closest star to Earth?", answer: "SUN" },
+    { question: "What is the capital of the United States?", answer: "WASHINGTON D.C." },
+    { question: "What is the capital of China?", answer: "BEIJING" },
+    { question: "What is the hardest natural substance on Earth?", answer: "DIAMOND" },
+    { question: "What is the chemical symbol for carbon dioxide?", answer: "CO2" },
+    { question: "What organ is responsible for filtering blood in the human body?", answer: "KIDNEYS" },
+    { question: "What is the term for animals that eat only meat?", answer: "CARNIVORES" },
+    { question: "What is the capital of South Korea?", answer: "SEOUL" },
+    { question: "What is the largest mammal on Earth?", answer: "BLUE WHALE" },
+    { question: "What is the term for an animal that eats both plants and animals?", answer: "OMNIVORE" },
+    { question: "What is the capital of Mexico?", answer: "MEXICO CITY" },
+];
+
+
+        function setDifficulty(seconds, interval) {
+            displayTime = seconds;
+            intervalTime = interval;
+            alert(`Difficulty set to ${seconds} seconds with an interval of ${interval} seconds!`);
+        }
+
+        function setMode(selectedMode) {
+            mode = selectedMode;
+            alert(`Mode set to ${mode.charAt(0).toUpperCase() + mode.slice(1)} Mode!`);
+        }
+
+        function startGame() {
+            document.getElementById('level-display').textContent = `Level: ${currentLevel}`;
+            document.getElementById('score-display').textContent = `Score: ${score}`;
+            timerFinished = false; // Reset timer finished state
+            generateSequence();
+        }
+
+        function generateSequence() {
+            const displayArea = document.getElementById('display-area');
+            currentSequence = [];
+            const length = 4 + currentLevel; // Start with 4 and add 1 for each level
+
+            if (mode === "numbers") {
+                for (let i = 0; i < length; i++) {
+                    currentSequence.push(Math.floor(Math.random() * 10));
+                }
+            } else {
+                let availableWords = wordsPool.filter(word => !usedWords.includes(word));
+                if (availableWords.length < length) {
+                    usedWords = []; // Reset used words when all are used
+                    availableWords = [...wordsPool];
+                }
+                for (let i = 0; i < length; i++) {
+                    const word = availableWords.splice(Math.floor(Math.random() * availableWords.length), 1)[0];
+                    currentSequence.push(word);
+                    usedWords.push(word);
+                }
+            }
+
+            displayArea.textContent = currentSequence.join(" ");
+
+            setTimeout(() => {
+                displayArea.textContent = "";
+                startIntervalTimer();
+            }, displayTime * 1000);
+        }
+
+        function startIntervalTimer() {
+            const timerElement = document.getElementById('timer');
+            let timeLeft = intervalTime;
+
+            timerElement.textContent = `Time to answer: ${timeLeft}s`;
+            document.getElementById('question-container').style.display = "block"; // Show the Q&A distraction
+            generateQuestion();
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = `Time to answer: ${timeLeft}s`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    timerFinished = true; // Mark the timer as finished
+                }
+            }, 1000);
+        }
+
+        function generateQuestion() {
+            const randomIndex = Math.floor(Math.random() * questionsPool.length);
+            const questionData = questionsPool[randomIndex];
+
+            currentQuestion = questionData.question;
+            correctAnswer = questionData.answer;
+
+            document.getElementById('question').textContent = `Question: ${currentQuestion}`;
+
+            const boxesContainer = document.getElementById('boxes');
+            boxesContainer.innerHTML = "";
+            for (let i = 0; i < correctAnswer.length; i++) {
+                const box = document.createElement('div');
+                box.classList.add('box');
+                box.setAttribute('data-index', i);
+                box.onclick = () => removeLetter(i);
+                boxesContainer.appendChild(box);
+            }
+
+            const shuffledLetters = shuffleArray(correctAnswer.split(""));
+            const shuffleContainer = document.getElementById('shuffle-letters');
+            shuffleContainer.innerHTML = "";
+            shuffledLetters.forEach((letter, index) => {
+                const letterElement = document.createElement('div');
+                letterElement.textContent = letter;
+                letterElement.classList.add('letter');
+                letterElement.onclick = () => selectLetter(letter, index);
+                shuffleContainer.appendChild(letterElement);
+            });
+
+            selectedLetters = Array(correctAnswer.length).fill(null);
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function selectLetter(letter, index) {
+            const firstEmptyBox = selectedLetters.findIndex((item) => item === null);
+            if (firstEmptyBox !== -1) {
+                selectedLetters[firstEmptyBox] = letter;
+                document.querySelector(`#boxes .box[data-index='${firstEmptyBox}']`).textContent = letter;
+
+                const letterElements = document.querySelectorAll('#shuffle-letters .letter');
+                letterElements[index].style.pointerEvents = "none";
+                letterElements[index].style.opacity = "0.5";
+            }
+        }
+
+        function removeLetter(boxIndex) {
+            const letter = selectedLetters[boxIndex];
+            if (letter !== null) {
+                selectedLetters[boxIndex] = null;
+                document.querySelector(`#boxes .box[data-index='${boxIndex}']`).textContent = "";
+
+                const letterElements = document.querySelectorAll('#shuffle-letters .letter');
+                for (let i = 0; i < letterElements.length; i++) {
+                    if (letterElements[i].textContent === letter && letterElements[i].style.pointerEvents === "none") {
+                        letterElements[i].style.pointerEvents = "auto";
+                        letterElements[i].style.opacity = "1";
+                        break;
+                    }
+                }
+            }
+        }
+
+        function validateAnswer() {
+            const playerAnswer = selectedLetters.join("");
+            if (playerAnswer === correctAnswer) {
+                alert("Correct! You can now type your answer.");
+                enableInput();
+            } else {
+                alert("Incorrect! Rearrange the letters properly.");
+            }
+        }
+
+        function enableInput() {
+            document.getElementById('user-input').disabled = false;
+            document.querySelector('#input-section button').disabled = false;
+            document.getElementById('question-container').style.display = "none"; // Remove distraction after correct
+        }
+
+        function submitAnswer() {
+            const userInput = document.getElementById('user-input').value.trim().replace(/\s+/g, "");
+            const correctSequence = currentSequence.join("");
+
+            if (userInput === correctSequence) {
+                score++;
+                document.getElementById('score-display').textContent = `Score: ${score}`;
+
+                if (score % 10 === 0) {
+                    currentLevel++;
+                    alert(`Level up! You are now on level ${currentLevel}.`);
+                }
+
+                setTimeout(startGame, 1000);
+            } else {
+                alert("Incorrect! Game resetting.");
+                resetGame();
+            }
+
+            document.getElementById('user-input').value = "";
+            document.getElementById('user-input').disabled = true;
+            document.querySelector('#input-section button').disabled = true;
+        }
+
+        function resetGame() {
+            currentLevel = 1;
+            score = 0;
+            clearInterval(timerInterval);
+
+            document.getElementById('level-display').textContent = `Level: ${currentLevel}`;
+            document.getElementById('score-display').textContent = `Score: ${score}`;
+            document.getElementById('display-area').textContent = "";
+            document.getElementById('timer').textContent = "";
+            document.getElementById('user-input').value = "";
+            document.getElementById('user-input').disabled = true;
+            document.querySelector('#input-section button').disabled = true;
+            generateSequence();
+        }
+
+        // Allow "Enter" key to submit answers
+        document.getElementById('user-input').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                submitAnswer();
+            }
+        });
+    </script>
+</body>
+</html>
